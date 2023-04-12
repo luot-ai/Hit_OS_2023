@@ -1,12 +1,12 @@
 # 1.x86系统架构概览
 ## 1.1. 系统级体系结构概览
-**①** 全局/局部描述符表GDT/LDT<br>表中存放了被称作**段描述符**的表项，这些表项提供**段的基址**以及访问权限、类型和使用信息。要寻址某个表项，需要的信息有<br><br>1）该表项位于哪个描述符表中(global/local flag)<br>2）描述符表在线性地址空间中的基址<br>3）该表项在描述符表中所处的位置(偏移)<br>*第1和第3点信息，由段选择器(segment selector)提供(段选择器还提供了一些权限信息)*<br>*第2点信息，则由GDTR和LDTR分别提供（LDTR实际上来自GDT中的一个表项）*<br><br>😀寻址段中某一字节的流程：段选择器+GDTR/LDTR→段描述符(段基址)→段内偏移
+**①** 全局/局部描述符表GDT/LDT<br>表中存放了被称作**段描述符**的表项，这些表项提供**段的基址**以及访问权限、类型和使用信息。要寻址某个表项，需要的信息有<br><br>1）该表项位于哪个描述符表中(global/local flag)<br>2）描述符表在线性地址空间中的基址<br>3）该表项在描述符表中所处的位置(偏移)<br>*第1和第3点信息，由段选择子(segment selector)提供*<br>*第2点信息，由GDTR和LDTR分别提供*<br><br>
 ***
-**②** System Segments, Segment Descriptors, and Gates<br>除了代码、数据和堆栈段之外，体系结构中还定义了两个系统段:任务状态段(TSS)和LDT。每个段都对应着一个段选择器<br><br>Gates(call gates, interrupt gates, trap gates, and 
-task gates)是特殊的描述符，它们保护了较高特权级别的系统过程/程序，并且存放着目标代码段的**段选择器(segment selector)**和段内偏移<br><br>😀对call gate进行调用的流程：由**calling procedure**提供相应call gate的selector→硬件对该gate执行特权检查→若允许访问目标代码段，则从gate中获取目标代码段的位置（若需要更改特权级别，处理器也会切换到目标特权级别的堆栈）
+**②** System Segments, Segment Descriptors, and Gates<br>除了代码、数据和堆栈段之外，体系结构中还定义了两个系统段:任务状态段(TSS)和LDT。每个段都对应着一个段选择子<br><br>Gates(call gates, interrupt gates, trap gates, and 
+task gates)是特殊的描述符，它们保护了较高特权级别的系统过程/程序，并且存放着目标代码段的**段选择子(segment selector)**和段内偏移<br><br>😀对call gate进行调用的流程：由**calling procedure**提供相应call gate的selector→硬件对该gate执行特权检查→若允许访问目标代码段，则从gate中获取目标代码段的位置（若需要更改特权级别，处理器也会切换到目标特权级别的堆栈）
 ***
 **③** Task-State Segments and Task Gates<br>
-TSS本质上是一个段，对应的段选择器存储在任务寄存器（TR）中。TSS包含了当前执行任务的**所有状态**：<br>1）通用寄存器、段寄存器、EFLAGS寄存器、EIP寄存器和段选择器（带有三个堆栈段的堆栈指针，每个特权级别对应一个堆栈）<br>2）该任务对应的LDT的段选择器和paging-structure hierarchy的基址<br><br>可以使用调用或跳转的方式切换到新任务（新任务的TSS的段选择器在CALL或JMP指令中给出），切换任务时处理器执行以下操作:<br>1）在当前TSS中存储当前任务的**状态**<br>2）将新任务的段选择器加载到TR中<br>3）由段选择器和GDTR寻址GDT中新任务的TSS段描述符<br>4）根据该描述符访问新任务的TSS<br>5）将TSS中的内容加载到通用寄存器、段寄存器、LDTR、控制寄存器CR3(存放paging-structure hierarchy的基址)、EFLAGS寄存器和EIP寄存器中<br>6）开始执行新任务<br><br>还可以通过任务门(Task Gates)访问任务,类似于调用门(call gates)，但是它提供的是对TSS的访问，而不是对代码段的访问
+TSS本质上是一个段，对应的段选择子存储在任务寄存器（TR）中。TSS包含了当前执行任务的**所有状态**：<br>1）通用寄存器、段寄存器、EFLAGS寄存器、EIP寄存器和段选择子（带有三个堆栈段的堆栈指针，每个特权级别对应一个堆栈）<br>2）该任务对应的LDT的段选择子和paging-structure hierarchy的基址<br><br>可以使用调用或跳转的方式切换到新任务（新任务的TSS的段选择子在CALL或JMP指令中给出），切换任务时处理器执行以下操作:<br>1）在当前TSS中存储当前任务的**状态**<br>2）将新任务的段选择子加载到TR中<br>3）由段选择子和GDTR寻址GDT中新任务的TSS段描述符<br>4）根据该描述符访问新任务的TSS<br>5）将TSS中的内容加载到通用寄存器、段寄存器、LDTR、控制寄存器CR3(存放paging-structure hierarchy的基址)、EFLAGS寄存器和EIP寄存器中<br>6）开始执行新任务<br><br>还可以通过任务门(Task Gates)访问任务,类似于调用门(call gates)，但是它提供的是对TSS的访问，而不是对代码段的访问
 ***
 **④** 中断和异常处理<br>中断和异常都是通过中断描述符表(IDT)处理的。<br><br>IDT存放了一些gate描述符，包括中断、陷阱以及任务gate描述符，他们提供了对**中断和异常处理程序**的访问,具体的访问流程如下：<br>1）处理器获取中断向量（中断号），获取途径包括内部硬件、外部中断控制器以及软件方式（INT/INTO/INT3/BOUND指令）<br>2）由IDTR提供IDT的**基址**，中断向量提供**索引**即可寻址相应的gate<br>3）若被选择的gate是中断门或陷阱门，则以类似于*通过call gate访问目标代码段*的方式访问相关的**中断和异常处理程序**；如果选择的是task gate，则通过*任务切换*的方式访问处理程序。
 ***
@@ -48,8 +48,8 @@ EFLAGS寄存器中的系统标志位如下图所示：
 1）GDTR与IDTR：<br>
 高位保存基址，低16位指定表中限定的字节数。处理器上电或复位时，基址为0，Limit为0FFFFH。在初始化保护模式的过程中，必须更新GDTR中的基址值；IDTR中的内容可以在处理器初始化过程中更新<br>
 2）LDTR与TR：<br>
-LDT与TSS的**段描述符**位于GDT中，寻址**段描述符**需要**段选择器**,而LDTR和TR的高16位就存储了**段选择器**，当使用LLDT/LTR指令更新LDTR或TR段选择器的内容时，相应段描述符中的基址、Limit和属性将自动加载到相应位中。<br>
-处理器上电或复位时，基址为0，Limit为0FFFFH；切换任务时，硬件自动将**新任务LDT与TSS的段选择器和描述符**更新到LDTR和TR中，寄存器旧值不会自动保存。<br>
+LDT与TSS的**段描述符**位于GDT中，寻址**段描述符**需要**段选择子**,而LDTR和TR的高16位就存储了**段选择子**，当使用LLDT/LTR指令更新LDTR或TR段选择子的内容时，相应段描述符中的基址、Limit和属性将自动加载到相应位中。<br>
+处理器上电或复位时，基址为0，Limit为0FFFFH；切换任务时，硬件自动将**新任务LDT与TSS的段选择子和描述符**更新到LDTR和TR中，寄存器旧值不会自动保存。<br>
 ***
 **③**控制寄存器<br><br>
 控制寄存器用于确定处理器的工作模式和当前正在执行的任务的特征，其中CR0-CR3各位如下图所示，这些寄存器在所有32位模式和兼容模式下都是32位
@@ -64,4 +64,4 @@ LDT与TSS的**段描述符**位于GDT中，寻址**段描述符**需要**段选�
 下图为这些指令的描述以及执行权限：
 ![系统指令](./images/4.png  "系统指令")<br>
 LGDT/LIDT将基址和Limit从内存中加载到GDTR/IDTR中；SGDT/SIDT将GDTR/IDTR的内容保存到内存中<br>
-LLDT/LTR将段选择器和段描述符从内存中加载到LDTR/TR中（段选择器可以来自通用寄存器）；SLDT/STR将LDTR/TR中的段选择器保存到内存或通用寄存器中<br>
+LLDT/LTR将段选择子和段描述符从内存中加载到LDTR/TR中（段选择子可以来自通用寄存器）；SLDT/STR将LDTR/TR中的段选择子保存到内存或通用寄存器中<br>
